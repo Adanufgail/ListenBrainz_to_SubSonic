@@ -12,8 +12,11 @@ from datetime import datetime
 import os
 
 if not os.path.exists("./.subsonic_creds"):
-	print("No credentials file exists")
-	quit(1);
+	if not os.path.exists(os.getenv("HOME")+"/.subsonic_creds"):
+		print("No credentials file exists")
+		quit(1);
+	else:
+		CRED=os.getenv("HOME")+"/.subsonic_creds"
 else:
 	CRED="./.subsonic_creds"
 		
@@ -31,15 +34,18 @@ print(salt+"\n"+token)
 songs2add=[]
 
 
-url = "https://api.listenbrainz.org/1/user/"+lbuser+"/playlists/createdfor?count=1" #URL for playlists generated for your user by LB
+url = "https://api.listenbrainz.org/1/user/"+lbuser+"/playlists/createdfor" #URL for playlists generated for your user by LB
 data = urlopen(url)
 playlists = json.loads(data.read())
-result=playlists["playlists"][0]["playlist"]["identifier"]
-plsplit=re.split('/',result)
-pl=plsplit[len(plsplit)-1]
-url = "https://api.listenbrainz.org/1/playlist/"+pl
-data = urlopen(url)
-lb_playlist = json.loads(data.read())
+for playlist in playlists["playlists"]:
+    if playlist["playlist"]["extension"]["https://musicbrainz.org/doc/jspf#playlist"]["additional_metadata"]["algorithm_metadata"]["source_patch"] == "weekly-jams":
+        result=playlist["playlist"]["identifier"]
+        plsplit=re.split('/',result)
+        pl=plsplit[len(plsplit)-1]
+        url = "https://api.listenbrainz.org/1/playlist/"+pl
+        data = urlopen(url)
+        lb_playlist = json.loads(data.read())
+        break
 
 
 plcdate=datetime.strptime(re.search("^[0-9]{4}-[0-9]{2}-[0-9]{2}",lb_playlist["playlist"]["date"]).group(), "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -50,7 +56,6 @@ data = urlopen(url)
 airsonicplaylists = ET.fromstring(data.read())
 apl = airsonicplaylists[0]
 for potpl in apl:
-    print(potpl.attrib["name"]+","+plname)
     if potpl.attrib["name"] == plname:
         print("playlist exists, quitting")
         quit()
